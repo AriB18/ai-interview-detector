@@ -1,4 +1,4 @@
-# 🔍 AI Interview Guardian
+# 🔍 AI Interview Detector
 
 Multi-modal AI detection system for remote interviews. Detects ChatGPT, Claude, Cluely, and other AI assistance tools in real-time.
 
