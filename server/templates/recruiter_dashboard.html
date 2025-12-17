@@ -1,1 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Detection - Recruiter Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 2em;
+        }
+        
+        .new-session-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .new-session-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .candidates-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .candidates-section h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .candidate-card {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border-left: 5px solid #4ade80;
+            transition: all 0.3s;
+        }
+        
+        .candidate-card.medium-risk {
+            border-left-color: #fbbf24;
+        }
+        
+        .candidate-card.high-risk {
+            border-left-color: #f87171;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.4); }
+            50% { box-shadow: 0 0 20px 10px rgba(248, 113, 113, 0); }
+        }
+        
+        .candidate-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .candidate-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .risk-badge {
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        .risk-low { background: #d1fae5; color: #065f46; }
+        .risk-medium { background: #fef3c7; color: #92400e; }
+        .risk-high { background: #fee2e2; color: #991b1b; }
+        
+        .scores-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .score-item {
+            text-align: center;
+        }
+        
+        .score-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .score-value {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+        
+        .alerts-section {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .alert-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        
+        .alert-high { background: #fee2e2; color: #991b1b; }
+        .alert-medium { background: #fef3c7; color: #92400e; }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #666;
+        }
+        
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+        
+        .client-instructions {
+            background: #f0f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #0ea5e9;
+        }
+        
+        .client-instructions h3 {
+            color: #0369a1;
+            margin-bottom: 15px;
+        }
+        
+        .copy-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            position: relative;
+        }
+        
+        .copy-btn {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🔍 AI Detection Dashboard</h1>
+                <p style="color: #666; margin-top: 5px;">Monitor candidates in real-time</p>
+            </div>
+            <button class="new-session-btn" onclick="showNewSessionModal()">
+                + New Interview Session
+            </button>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Active Candidates</h3>
+                <div class="stat-value" id="activeCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>High Risk Alerts</h3>
+                <div class="stat-value" style="color: #f87171;" id="highRiskCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Sessions</h3>
+                <div class="stat-value" style="color: #fbbf24;" id="totalSessions">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Avg Detection Score</h3>
+                <div class="stat-value" style="color: #ec4899;" id="avgScore">0%</div>
+            </div>
+        </div>
+        
+        <div class="candidates-section">
+            <h2>Active Candidates</h2>
+            <div id="candidatesList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">👥</div>
+                    <h3>No active candidates</h3>
+                    <p>Create a new session to start monitoring</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- New Session Modal -->
+    <div id="newSessionModal" class="modal">
+        <div class="modal-content">
+            <h2>Create New Interview Session</h2>
+            <div class="form-group">
+                <label>Candidate Name</label>
+                <input type="text" id="candidateName" placeholder="John Doe">
+            </div>
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="createSession()">Create Session</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Session Created Modal -->
+    <div id="sessionCreatedModal" class="modal">
+        <div class="modal-content">
+            <h2>✅ Session Created!</h2>
+            <div class="client-instructions">
+                <h3>Send these details to the candidate:</h3>
+                
+                <p style="margin: 10px 0;"><strong>Session ID:</strong></p>
+                <div class="copy-box">
+                    <span id="sessionIdDisplay"></span>
+                    <button class="copy-btn" onclick="copyText('sessionIdDisplay')">Copy</button>
+                </div>
+                
+                <p style="margin: 10px 0;"><strong>Token:</strong></p>
+                <div class="copy-box">
+                    <span id="tokenDisplay"></span>
+                    <button class="copy-btn" onclick="copyText('tokenDisplay')">Copy</button>
+                </div>
+                
+                <p style="margin: 10px 0;"><strong>Server URL:</strong></p>
+                <div class="copy-box">
+                    <span id="serverUrlDisplay"></span>
+                    <button class="copy-btn" onclick="copyText('serverUrlDisplay')">Copy</button>
+                </div>
+                
+                <p style="margin-top: 20px; color: #0369a1;">
+                    <strong>Instructions:</strong><br>
+                    1. Candidate downloads the client software<br>
+                    2. Runs it and enters these credentials<br>
+                    3. You'll see them appear here in real-time
+                </p>
+            </div>
+            <button class="btn btn-primary" onclick="closeSessionModal()" style="margin-top: 20px;">Got it!</button>
+        </div>
+    </div>
+    
+    <script>
+        const socket = io();
+        let sessions = {};
+        
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            loadSessions();
+        });
+        
+        socket.on('candidate_update', (data) => {
+            sessions[data.session_id] = data.data;
+            updateDashboard();
+        });
+        
+        socket.on('high_risk_alert', (data) => {
+            showNotification(`🚨 High Risk: ${data.candidate_name} (${(data.score * 100).toFixed(0)}%)`);
+        });
+        
+        function showNewSessionModal() {
+            document.getElementById('newSessionModal').style.display = 'flex';
+        }
+        
+        function closeModal() {
+            document.getElementById('newSessionModal').style.display = 'none';
+        }
+        
+        function closeSessionModal() {
+            document.getElementById('sessionCreatedModal').style.display = 'none';
+        }
+        
+        async function createSession() {
+            const candidateName = document.getElementById('candidateName').value.trim();
+            if (!candidateName) {
+                alert('Please enter candidate name');
+                return;
+            }
+            
+            const response = await fetch('/api/create-session', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({candidate_name: candidateName})
+            });
+            
+            const data = await response.json();
+            
+            document.getElementById('sessionIdDisplay').textContent = data.session_id;
+            document.getElementById('tokenDisplay').textContent = data.token;
+            document.getElementById('serverUrlDisplay').textContent = window.location.origin;
+            
+            closeModal();
+            document.getElementById('sessionCreatedModal').style.display = 'flex';
+            document.getElementById('candidateName').value = '';
+        }
+        
+        function copyText(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(text);
+            alert('Copied to clipboard!');
+        }
+        
+        async function loadSessions() {
+            const response = await fetch('/api/sessions');
+            const data = await response.json();
+            sessions = data.active_sessions;
+            updateDashboard();
+        }
+        
+        function updateDashboard() {
+            const sessionArray = Object.entries(sessions);
+            const activeCount = sessionArray.filter(([_, s]) => s.status === 'active').length;
+            const highRiskCount = sessionArray.filter(([_, s]) => s.detection_score > 0.75).length;
+            const avgScore = sessionArray.length > 0 
+                ? sessionArray.reduce((sum, [_, s]) => sum + s.detection_score, 0) / sessionArray.length 
+                : 0;
+            
+            document.getElementById('activeCount').textContent = activeCount;
+            document.getElementById('highRiskCount').textContent = highRiskCount;
+            document.getElementById('totalSessions').textContent = sessionArray.length;
+            document.getElementById('avgScore').textContent = (avgScore * 100).toFixed(0) + '%';
+            
+            const candidatesList = document.getElementById('candidatesList');
+            
+            if (sessionArray.length === 0) {
+                candidatesList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👥</div>
+                        <h3>No active candidates</h3>
+                        <p>Create a new session to start monitoring</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            candidatesList.innerHTML = sessionArray.map(([sessionId, data]) => {
+                const score = data.detection_score;
+                const riskClass = score < 0.3 ? 'low' : score < 0.7 ? 'medium' : 'high';
+                const cardClass = score < 0.3 ? '' : score < 0.7 ? 'medium-risk' : 'high-risk';
+                
+                return `
+                    <div class="candidate-card ${cardClass}">
+                        <div class="candidate-header">
+                            <div class="candidate-name">${data.candidate_name}</div>
+                            <div class="risk-badge risk-${riskClass}">
+                                ${riskClass.toUpperCase()} RISK (${(score * 100).toFixed(0)}%)
+                            </div>
+                        </div>
+                        
+                        <div class="scores-grid">
+                            <div class="score-item">
+                                <div class="score-label">Overall</div>
+                                <div class="score-value" style="color: ${score < 0.3 ? '#4ade80' : score < 0.7 ? '#fbbf24' : '#f87171'}">
+                                    ${(score * 100).toFixed(0)}%
+                                </div>
+                            </div>
+                            <div class="score-item">
+                                <div class="score-label">Process</div>
+                                <div class="score-value" style="color: #667eea;">
+                                    ${(data.process_score * 100).toFixed(0)}%
+                                </div>
+                            </div>
+                            <div class="score-item">
+                                <div class="score-label">Audio</div>
+                                <div class="score-value" style="color: #764ba2;">
+                                    ${(data.audio_score * 100).toFixed(0)}%
+                                </div>
+                            </div>
+                            <div class="score-item">
+                                <div class="score-label">Behavior</div>
+                                <div class="score-value" style="color: #ec4899;">
+                                    ${(data.behavior_score * 100).toFixed(0)}%
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${data.suspicious_processes.length > 0 ? `
+                            <div style="background: #fee2e2; padding: 10px; border-radius: 8px; margin-top: 15px;">
+                                <strong style="color: #991b1b;">🚨 Detected Processes:</strong>
+                                <div style="color: #991b1b; margin-top: 5px;">${data.suspicious_processes.join(', ')}</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${data.alerts.length > 0 ? `
+                            <div class="alerts-section">
+                                <strong>Recent Alerts:</strong>
+                                ${data.alerts.slice(-3).map(alert => `
+                                    <div class="alert-item alert-${alert.severity.toLowerCase()}">
+                                        ${alert.details}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                        
+                        <div style="margin-top: 15px; color: #999; font-size: 0.85em;">
+                            Last updated: ${new Date(data.last_update).toLocaleTimeString()}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function showNotification(message) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('AI Detection Alert', {body: message});
+            }
+            alert(message);
+        }
+        
+        // Request notification permission
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+        
+        // Auto-refresh every 3 seconds
+        setInterval(loadSessions, 3000);
+    </script>
+</body>
+</html>
 
