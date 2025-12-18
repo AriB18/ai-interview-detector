@@ -75,28 +75,12 @@ python build_final.py
 - Python 3.8+ (for development)
 - Internet connection
 
-##  Documentation
-
-See [COMPLETE_SETUP_GUIDE.md](COMPLETE_SETUP_GUIDE.md) for detailed setup instructions.
 
 ##  Important Notes
 
 - Candidates must consent to monitoring
 - Complies with privacy laws (GDPR, etc.)
 - For legitimate interview integrity only
-
-##  Contributing
-
-Pull requests welcome! Please read CONTRIBUTING.md first.
-
-##  License
-
-MIT License - See LICENSE file
-
-##  Support
-
-- Issues: https://github.com/yourusername/ai-interview-guardian/issues
-- Email: support@yourcompany.com
 
 ---
 
